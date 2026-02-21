@@ -1,14 +1,22 @@
-# Use official OpenJDK 21 runtime image
-FROM eclipse-temurin:21-jdk-jammy
+# ---------- Build stage ----------
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /build
 
-# Set working directory
+COPY pom.xml .
+RUN mvn -B -q -e -DskipTests dependency:go-offline
+
+COPY src ./src
+RUN mvn -B -DskipTests package
+
+# ---------- Runtime stage ----------
+FROM eclipse-temurin:21-jdk-jammy
 WORKDIR /app
 
-# Copy jar file into container
-COPY target/*.jar app.jar
+COPY --from=build /build/target/*.jar app.jar
 
-# Expose application port
+ENV PORT=8080
+ENV JAVA_OPTS=""
+
 EXPOSE 8080
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar --server.port=${PORT}"]
